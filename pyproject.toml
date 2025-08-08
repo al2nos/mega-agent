@@ -1,9 +1,13 @@
+# pyproject.toml
 [build-system]
+# Важно: требуется setup.py для совместимости с legacy builds
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mega-agent"
+# Используем строку версии напрямую, так как attr: требует осторожности
+# и может вызывать проблемы при сборке, если модуль ещё не установлен.
 version = "1.0.0"
 description = "Мега-агент для Orange Pi Zero 2W с 4-цветным e-paper дисплеем и расширенными возможностями"
 readme = "README.md"
@@ -26,6 +30,8 @@ classifiers = [
     "Topic :: Home Automation",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+# Основные зависимости
+# RPi.GPIO и spidev предполагаются как системные пакеты
 dependencies = [
     "Flask>=2.3.3",
     "requests>=2.31.0",
@@ -33,8 +39,6 @@ dependencies = [
     "python-telegram-bot>=20.6",
     "apscheduler>=3.10.4",
     "Pillow>=10.0.1",
-    "RPi.GPIO", # Системный пакет
-    "spidev",   # Системный пакет
     # Для Mesh-сети
     "pyserial",
     # Для промышленных протоколов
@@ -44,31 +48,31 @@ dependencies = [
     # Для мониторинга
     "pandas",
     "numpy",
-    # Для бизнес-интеграций (примеры)
-    # "amocrm_api",
-    # "bitrix24_api",
 ]
 
+# Опциональные зависимости для различных функций
 [project.optional-dependencies]
 mesh = [
-    "pyserial",
     # Добавьте специфичные для LoRa, Bluetooth Mesh библиотеки здесь
+    # "pybluez", # Пример
+    # "bleak",   # Пример
 ]
 industrial = [
-    "pymodbus",
-    # Добавьте библиотеки для CoAP, MQTT-SN
+    # pymodbus уже в основных
+    # Добавьте библиотеки для CoAP, MQTT-SN если они специфичны
 ]
 integrations = [
-    "paho-mqtt",
-    # Добавьте библиотеки для Zigbee2MQTT, Z-Wave, KNX, HomeKit
+    # paho-mqtt уже в основных
+    # Добавьте библиотеки для Zigbee2MQTT, Z-Wave, KNX, HomeKit если специфичны
 ]
 monitoring = [
-    "pandas",
-    "numpy",
-    # Добавьте библиотеки для веб-дашбордов, отправки SMS/Email
+    # pandas, numpy уже в основных
+    # Добавьте библиотеки для веб-дашбордов, отправки SMS/Email если специфичны
 ]
 business = [
     # Добавьте библиотеки для CRM/ERP/API
+    # "amocrm_api", # Пример (не реальное имя пакета)
+    # "bitrix24_api", # Пример (не реальное имя пакета)
 ]
 
 [project.urls]
@@ -76,5 +80,6 @@ Homepage = "https://github.com/ваш-логин/mega-agent"
 Repository = "https://github.com/ваш-логин/mega-agent.git"
 "Bug Tracker" = "https://github.com/ваш-логин/mega-agent/issues"
 
+# Точка входа для консольной команды (если будет)
 [project.scripts]
-mega-agent = "mega_agent:main"
+# mega-agent = "mega_agent:main"
