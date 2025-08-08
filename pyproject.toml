@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mega-agent"
+version = "1.0.0"
+description = "Мега-агент для Orange Pi Zero 2W с 4-цветным e-paper дисплеем и расширенными возможностями"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+  {name = "Ваше Имя", email = "ваш@email.com"},
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "Flask>=2.3.3",
+    "requests>=2.31.0",
+    "cryptography>=41.0.4",
+    "python-telegram-bot>=20.6",
+    "apscheduler>=3.10.4",
+    "Pillow>=10.0.1",
+    "RPi.GPIO", # Системный пакет
+    "spidev",   # Системный пакет
+    # Для Mesh-сети
+    "pyserial",
+    # Для промышленных протоколов
+    "pymodbus",
+    # Для интеграций
+    "paho-mqtt",
+    # Для мониторинга
+    "pandas",
+    "numpy",
+    # Для бизнес-интеграций (примеры)
+    # "amocrm_api",
+    # "bitrix24_api",
+]
+
+[project.optional-dependencies]
+mesh = [
+    "pyserial",
+    # Добавьте специфичные для LoRa, Bluetooth Mesh библиотеки здесь
+]
+industrial = [
+    "pymodbus",
+    # Добавьте библиотеки для CoAP, MQTT-SN
+]
+integrations = [
+    "paho-mqtt",
+    # Добавьте библиотеки для Zigbee2MQTT, Z-Wave, KNX, HomeKit
+]
+monitoring = [
+    "pandas",
+    "numpy",
+    # Добавьте библиотеки для веб-дашбордов, отправки SMS/Email
+]
+business = [
+    # Добавьте библиотеки для CRM/ERP/API
+]
+
+[project.urls]
+Homepage = "https://github.com/ваш-логин/mega-agent"
+Repository = "https://github.com/ваш-логин/mega-agent.git"
+"Bug Tracker" = "https://github.com/ваш-логин/mega-agent/issues"
+
+[project.scripts]
+mega-agent = "mega_agent:main"
