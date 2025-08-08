@@ -21,7 +21,6 @@ __pycache__/
 
 # Конфигурационные файлы с секретами
 config/settings.json
-.env
 
 # Модели (большие файлы)
 models/*.gguf
@@ -30,7 +29,7 @@ models/*.gguf
 test_*.py
 *_test.py
 
-# Документация
+# Документация сборки
 docs/_build/
 
 # IDE
@@ -42,3 +41,9 @@ docs/_build/
 # ОС
 .DS_Store
 Thumbs.db
+
+# Резервные копии данных
+backups/
+
+# Данные мониторинга (если в файле)
+monitoring_data/
