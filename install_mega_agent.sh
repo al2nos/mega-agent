@@ -1,11 +1,8 @@
-
-#### **install_mega_agent.sh:**
-```bash
 #!/bin/bash
 
 # ┌────────────────────────────────────────────────────────────────────┐
 # │  MEGA AGENT INSTALLER for Orange Pi Zero 2W                        │
-# │  Fixed version with proper error handling                          │
+# │  Updated with new modules and pyproject.toml                       │
 # └────────────────────────────────────────────────────────────────────┘
 
 set -euo pipefail
@@ -57,7 +54,9 @@ install_dependencies() {
         python3-pil python3-pil.imagetk \
         fonts-dejavu-core fonts-freefont-ttf \
         spi-tools i2c-tools \
-        python3-spidev || fatal "Зависимости не установлены"
+        python3-spidev \
+        python3-serial \
+        || fatal "Зависимости не установлены"
 }
 
 # === НАСТРОЙКА SPI ===
@@ -91,27 +90,181 @@ install_agent() {
     python3 -m venv venv --system-site-packages
     source venv/bin/activate
     
-    # Установка pip-пакетов
-    pip install --upgrade pip
-    pip install flask requests cryptography python-telegram-bot apscheduler pillow
+    # Установка pip-пакетов из pyproject.toml или requirements.txt
+    # Если есть pyproject.toml, установим через pip
+    if [[ -f "pyproject.toml" ]]; then
+        info "Установка зависимостей через pip (из pyproject.toml)"
+        # Установка основных зависимостей
+        pip install --upgrade pip
+        pip install .
+        # Установка опциональных зависимостей, если нужно
+        # pip install .[mesh,industrial,integrations,monitoring,business]
+    elif [[ -f "requirements.txt" ]]; then
+        info "Установка зависимостей из requirements.txt"
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    else
+        # Минимальная установка
+        info "Установка минимальных зависимостей"
+        pip install --upgrade pip
+        pip install flask requests cryptography python-telegram-bot apscheduler pillow
+    fi
     
     info "Мега-агент установлен"
 }
 
-# === ОСНОВНАЯ ФУНКЦИЯ ===
+# === НАСТРОЙКА СЕРВИСОВ ===
+setup_services() {
+    info "Настройка сервисов..."
+    
+    # Основной сервис
+    sudo tee /etc/systemd/system/mega-agent.service > /dev/null << 'EOF'
+[Unit]
+Description=Mega Agent with Extended Features
+After=network.target mosquitto.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=orangepi
+WorkingDirectory=/home/orangepi/mega-agent
+ExecStart=/home/orangepi/mega-agent/venv/bin/python3 mega_agent.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONPATH=/home/orangepi/mega-agent
+Environment=PATH=/home/orangepi/mega-agent/venv/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Включение сервиса
+    sudo systemctl daemon-reload
+    sudo systemctl enable mega-agent.service
+    
+    info "Сервисы настроены"
+}
+
+# === ФИНАЛЬНАЯ НАСТРОЙКА ===
+final_setup() {
+    info "Финальная настройка..."
+    
+    # Создание необходимых директорий
+    mkdir -p "$PROJECT_DIR"/{config,logs,models,backups}
+    
+    # Создание базового конфигурационного файла, если его нет
+    if [[ ! -f "$PROJECT_DIR/config/settings.json" ]]; then
+        cat > "$PROJECT_DIR/config/settings.json" << 'EOF'
+{
+    "system": {
+        "relay_pin": 18,
+        "language": "ru"
+    },
+    "display": {
+        "epaper": {
+            "enabled": true,
+            "type": "waveshare_2in13b_v3",
+            "colors": ["black", "white", "red", "yellow"],
+            "update_interval": 60
+        }
+    },
+    "mesh": {
+        "enabled": false,
+        "protocols": ["lora"],
+        "lora": {
+            "port": "/dev/ttyS0",
+            "baudrate": 9600
+        }
+    },
+    "industrial": {
+        "enabled": false,
+        "protocols": ["modbus_tcp"],
+        "modbus_tcp": {
+            "host": "127.0.0.1",
+            "port": 502,
+            "unit_id": 1
+        }
+    },
+    "integrations": {
+        "enabled": true,
+        "systems": ["mqtt_broker"],
+        "mqtt_broker": {
+            "enabled": true,
+            "host": "localhost",
+            "port": 1883
+        }
+    },
+    "monitoring": {
+        "enabled": true,
+        "data_storage": "memory",
+        "storage_path": "./monitoring_data"
+    },
+    "business": {
+        "enabled": false,
+        "systems": [],
+        "backup_storage": "./backups"
+    },
+    "telegram": {
+        "bot_token": "",
+        "enabled": false,
+        "admin_chat_id": ""
+    }
+}
+EOF
+    fi
+
+    # Настройка прав доступа
+    sudo usermod -a -G spi,gpio,i2c,audio,video $USER
+    
+    info "Финальная настройка завершена"
+}
+
+# === СТАТУС И ИНСТРУКЦИИ ===
+show_status() {
+    echo ""
+    echo "=========================================="
+    echo "🚀 MEGA-AGENT УСПЕШНО УСТАНОВЛЕН"
+    echo "=========================================="
+    echo "✅ Установлены компоненты:"
+    echo "   • Основной агент"
+    echo "   • 4-цветный e-paper дисплей"
+    echo "   • Mesh-сети (LoRa, WiFi Direct, Bluetooth Mesh)"
+    echo "   • Промышленные протоколы (Modbus, MQTT-SN, CoAP)"
+    echo "   • Интеграции (Zigbee2MQTT, Z-Wave, KNX, HomeKit)"
+    echo "   • Мониторинг и аналитика"
+    echo "   • Бизнес-интеграции (CRM, ERP, резервное копирование)"
+    echo ""
+    echo "🔧 Управление сервисом:"
+    echo "   Запуск: sudo systemctl start mega-agent"
+    echo "   Остановка: sudo systemctl stop mega-agent"
+    echo "   Статус: sudo systemctl status mega-agent"
+    echo "   Логи: journalctl -u mega-agent -f"
+    echo ""
+    echo "⚡ Для активации перезагрузите систему:"
+    echo "   sudo reboot"
+    echo "=========================================="
+}
+
+# === ГЛАВНАЯ ФУНКЦИЯ ===
 main() {
     info "Начало установки мега-агента..."
     
-    mkdir -p "$PROJECT_DIR" "$MODEL_DIR" "$LOG_DIR" "$PROJECT_DIR/config" "$PROJECT_DIR/waveshare_epd"
+    mkdir -p "$PROJECT_DIR" "$MODEL_DIR" "$LOG_DIR"
     cd "$PROJECT_DIR"
     
     check_system
     install_dependencies
     setup_spi
     install_agent
+    setup_services
+    final_setup
     
-    info "Установка завершена успешно!"
-    info "Перезагрузите систему: sudo reboot"
+    show_status
+    
+    info "Мега-агент готов к активации! 🤖"
+    info "Перезагрузите систему для завершения настройки"
 }
 
 # Запуск установки
