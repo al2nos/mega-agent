@@ -1,0 +1,24 @@
+{
+    "ozon": {
+        "client_id": "",
+        "api_key": "",
+        "enabled": false
+    },
+    "telegram": {
+        "bot_token": "",
+        "enabled": false,
+        "admin_chat_id": ""
+    },
+    "system": {
+        "relay_pin": 18,
+        "language": "ru"
+    },
+    "display": {
+        "epaper": {
+            "enabled": true,
+            "type": "waveshare_2in13b_v3",
+            "colors": ["black", "white", "red", "yellow"],
+            "update_interval": 60
+        }
+    }
+}
