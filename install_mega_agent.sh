@@ -2,7 +2,7 @@
 
 # ┌────────────────────────────────────────────────────────────────────┐
 # │  MEGA AGENT INSTALLER for Orange Pi Zero 2W                        │
-# │  Updated with new modules and pyproject.toml                       │
+# │  Updated with pyproject.toml and proper dependency handling        │
 # └────────────────────────────────────────────────────────────────────┘
 
 set -euo pipefail
@@ -30,11 +30,12 @@ check_system() {
 
 # === УСТАНОВКА ЗАВИСИМОСТЕЙ ===
 install_dependencies() {
-    info "Установка зависимостей..."
+    info "Установка системных зависимостей..."
     
     sudo apt update -q
     
-    # Установка системных пакетов
+    # Установка системных пакетов, включая те, которые требуют компиляции
+    # Устанавливаем python3-dev и build-essential ДО установки пакетов через pip
     sudo apt install -y --no-install-recommends \
         ca-certificates curl wget git \
         python3 python3-pip python3-venv python3-dev python3-full \
@@ -56,7 +57,7 @@ install_dependencies() {
         spi-tools i2c-tools \
         python3-spidev \
         python3-serial \
-        || fatal "Зависимости не установлены"
+        || fatal "Системные зависимости не установлены"
 }
 
 # === НАСТРОЙКА SPI ===
@@ -68,10 +69,16 @@ setup_spi() {
     sudo groupadd -f gpio 2>/dev/null || true
     sudo groupadd -f i2c 2>/dev/null || true
     
-    # Включение SPI в config.txt
-    if ! grep -q "dtparam=spi=on" /boot/orangepiEnv.txt 2>/dev/null; then
+    # Включение SPI в config.txt (проверка для Armbian/Ubuntu)
+    # Путь может отличаться, адаптируйте при необходимости
+    if [ -f /boot/orangepiEnv.txt ] && ! grep -q "dtparam=spi=on" /boot/orangepiEnv.txt 2>/dev/null; then
         echo "dtparam=spi=on" | sudo tee -a /boot/orangepiEnv.txt
         warn "Требуется перезагрузка для активации SPI!"
+    elif [ -f /boot/armbianEnv.txt ] && ! grep -q "dtparam=spi=on" /boot/armbianEnv.txt 2>/dev/null; then
+        echo "dtparam=spi=on" | sudo tee -a /boot/armbianEnv.txt
+        warn "Требуется перезагрузка для активации SPI!"
+    else
+        info "Параметр SPI, возможно, уже включен или файл конфигурации не найден."
     fi
     
     # Добавление пользователя в группы
@@ -87,27 +94,22 @@ install_agent() {
     cd "$PROJECT_DIR"
     
     # Создание виртуального окружения с доступом к системным пакетам
+    # Это КЛЮЧЕВОЙ момент для использования python3-rpi.gpio и python3-spidev
     python3 -m venv venv --system-site-packages
     source venv/bin/activate
     
-    # Установка pip-пакетов из pyproject.toml или requirements.txt
-    # Если есть pyproject.toml, установим через pip
-    if [[ -f "pyproject.toml" ]]; then
-        info "Установка зависимостей через pip (из pyproject.toml)"
-        # Установка основных зависимостей
-        pip install --upgrade pip
-        pip install .
-        # Установка опциональных зависимостей, если нужно
-        # pip install .[mesh,industrial,integrations,monitoring,business]
-    elif [[ -f "requirements.txt" ]]; then
+    # Обновление pip внутри venv
+    pip install --upgrade pip
+    
+    # Установка зависимостей из requirements.txt
+    if [[ -f "requirements.txt" ]]; then
         info "Установка зависимостей из requirements.txt"
-        pip install --upgrade pip
         pip install -r requirements.txt
     else
-        # Минимальная установка
-        info "Установка минимальных зависимостей"
-        pip install --upgrade pip
-        pip install flask requests cryptography python-telegram-bot apscheduler pillow
+        # Если requirements.txt нет, установим из pyproject.toml
+        # Это менее надежно, но можно попробовать
+        info "Установка зависимостей через pip install ."
+        pip install .
     fi
     
     info "Мега-агент установлен"
@@ -115,7 +117,7 @@ install_agent() {
 
 # === НАСТРОЙКА СЕРВИСОВ ===
 setup_services() {
-    info "Настройка сервисов..."
+    info "Настройка systemd сервисов..."
     
     # Основной сервис
     sudo tee /etc/systemd/system/mega-agent.service > /dev/null << 'EOF'
@@ -126,9 +128,9 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=orangepi
-WorkingDirectory=/home/orangepi/mega-agent
-ExecStart=/home/orangepi/mega-agent/venv/bin/python3 mega_agent.py
+User=orangepi # Замените на $USER, если это не 'orangepi'
+WorkingDirectory=/home/orangepi/mega-agent # Замените на $PROJECT_DIR
+ExecStart=/home/orangepi/mega-agent/venv/bin/python3 -c "print('Mega Agent placeholder')"
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -142,9 +144,10 @@ EOF
 
     # Включение сервиса
     sudo systemctl daemon-reload
-    sudo systemctl enable mega-agent.service
+    # Не включаем автоматически, пусть пользователь сам запустит
+    # sudo systemctl enable mega-agent.service 
     
-    info "Сервисы настроены"
+    info "Сервисы настроены (запустите 'sudo systemctl enable mega-agent.service' для автозапуска)"
 }
 
 # === ФИНАЛЬНАЯ НАСТРОЙКА ===
@@ -152,7 +155,7 @@ final_setup() {
     info "Финальная настройка..."
     
     # Создание необходимых директорий
-    mkdir -p "$PROJECT_DIR"/{config,logs,models,backups}
+    mkdir -p "$PROJECT_DIR"/{config,logs,models,backups,modules,docs,scripts}
     
     # Создание базового конфигурационного файла, если его нет
     if [[ ! -f "$PROJECT_DIR/config/settings.json" ]]; then
@@ -228,21 +231,23 @@ show_status() {
     echo "🚀 MEGA-AGENT УСПЕШНО УСТАНОВЛЕН"
     echo "=========================================="
     echo "✅ Установлены компоненты:"
-    echo "   • Основной агент"
-    echo "   • 4-цветный e-paper дисплей"
-    echo "   • Mesh-сети (LoRa, WiFi Direct, Bluetooth Mesh)"
-    echo "   • Промышленные протоколы (Modbus, MQTT-SN, CoAP)"
-    echo "   • Интеграции (Zigbee2MQTT, Z-Wave, KNX, HomeKit)"
-    echo "   • Мониторинг и аналитика"
-    echo "   • Бизнес-интеграции (CRM, ERP, резервное копирование)"
+    echo "   • Основной агент (заглушка)"
+    echo "   • 4-цветный e-paper дисплей (поддержка)"
+    echo "   • Каркас для Mesh-сетей (LoRa, WiFi Direct, Bluetooth Mesh)"
+    echo "   • Каркас для промышленных протоколов (Modbus, MQTT-SN, CoAP)"
+    echo "   • Каркас для интеграций (Zigbee2MQTT, Z-Wave, KNX, HomeKit)"
+    echo "   • Каркас для мониторинга и аналитики"
+    echo "   • Каркас для бизнес-интеграций (CRM, ERP, резервное копирование)"
     echo ""
-    echo "🔧 Управление сервисом:"
-    echo "   Запуск: sudo systemctl start mega-agent"
-    echo "   Остановка: sudo systemctl stop mega-agent"
-    echo "   Статус: sudo systemctl status mega-agent"
-    echo "   Логи: journalctl -u mega-agent -f"
+    echo "🔧 Следующие шаги:"
+    echo "   1. Разработайте основной агент (mega_agent.py)"
+    echo "   2. Доработайте модули в директории modules/"
+    echo "   3. Настройте конфигурацию в config/settings.json"
+    echo "   4. Для автозапуска: sudo systemctl enable mega-agent.service"
+    echo "   5. Для запуска: sudo systemctl start mega-agent.service"
+    echo "   6. Просмотр логов: journalctl -u mega-agent.service -f"
     echo ""
-    echo "⚡ Для активации перезагрузите систему:"
+    echo "⚡ Если вы включили SPI, перезагрузите систему:"
     echo "   sudo reboot"
     echo "=========================================="
 }
@@ -263,8 +268,8 @@ main() {
     
     show_status
     
-    info "Мега-агент готов к активации! 🤖"
-    info "Перезагрузите систему для завершения настройки"
+    info "Мега-агент готов к разработке! 🤖"
+    info "Перезагрузите систему, если включали SPI."
 }
 
 # Запуск установки
