@@ -1,19 +1,13 @@
 # requirements.txt
-# Основные зависимости из pyproject.toml[project.dependencies]
 Flask>=2.3.3
 requests>=2.31.0
 cryptography>=41.0.4
 python-telegram-bot>=20.6
 apscheduler>=3.10.4
 Pillow>=10.0.1
-
-# Зависимости для новых модулей
 pyserial
 pymodbus
 paho-mqtt
 pandas
 numpy
-
-# Примечание: RPi.GPIO и spidev должны устанавливаться системным способом:
-# sudo apt install python3-rpi.gpio python3-spidev
-# И виртуальное окружение должно создаваться с --system-site-packages
+# ВАЖНО: RPi.GPIO и spidev НЕ ВКЛЮЧЕНЫ
