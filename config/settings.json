@@ -1,14 +1,4 @@
 {
-    "ozon": {
-        "client_id": "",
-        "api_key": "",
-        "enabled": false
-    },
-    "telegram": {
-        "bot_token": "",
-        "enabled": false,
-        "admin_chat_id": ""
-    },
     "system": {
         "relay_pin": 18,
         "language": "ru"
@@ -20,5 +10,46 @@
             "colors": ["black", "white", "red", "yellow"],
             "update_interval": 60
         }
+    },
+    "mesh": {
+        "enabled": false,
+        "protocols": ["lora"],
+        "lora": {
+            "port": "/dev/ttyS0",
+            "baudrate": 9600
+        }
+    },
+    "industrial": {
+        "enabled": false,
+        "protocols": ["modbus_tcp"],
+        "modbus_tcp": {
+            "host": "127.0.0.1",
+            "port": 502,
+            "unit_id": 1
+        }
+    },
+    "integrations": {
+        "enabled": true,
+        "systems": ["mqtt_broker"],
+        "mqtt_broker": {
+            "enabled": true,
+            "host": "localhost",
+            "port": 1883
+        }
+    },
+    "monitoring": {
+        "enabled": true,
+        "data_storage": "memory",
+        "storage_path": "./monitoring_data"
+    },
+    "business": {
+        "enabled": false,
+        "systems": [],
+        "backup_storage": "./backups"
+    },
+    "telegram": {
+        "bot_token": "",
+        "enabled": false,
+        "admin_chat_id": ""
     }
 }
